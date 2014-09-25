@@ -59,8 +59,8 @@ def _create_banner_issue(ip, port, protocol, banner):
     return issue
 
 def _validate_ports(ports):
-    # U:53,111,137,T:21-25,139,8080
-    return re.match(r"(((U|T):)\d+(-\d+)?)(,((U|T):)?\d+(-\d+)?)*", ports)
+    # 21-25,139,8080,U:53,U:111,U:137
+    return re.match(r"((U:)?\d+(-\d+)?)(,(U:)?\d+(-\d+)?)*", ports)
 
 def _validate_source_port(source_port):
     try:
