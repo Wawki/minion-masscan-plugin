@@ -63,7 +63,7 @@ def _create_banner_issue(ip, port, protocol, banner):
 
 def _validate_ports(ports):
     # 21-25,139,8080,U:53,U:111,U:137
-    return re.match(r"((U:)?\d+(-\d+)?)(,(U:)?\d+(-\d+)?)*", ports)
+    return re.match(r"(((U|T):)?\d+(-\d+)?)(,((U|T):)?\d+(-\d+)?)*", ports)
 
 def _validate_source_port(source_port):
     try:
@@ -232,7 +232,7 @@ class MASSCANPlugin(ExternalProcessPlugin):
 
         self.output_id = str(uuid.uuid4())
         self.xml_output = self.report_dir + "XMLOUTPUT_" + self.output_id + ".xml"
-        args += ["-oX", self.xml_output]
+        args += ["-oX", self.xml_output, "--no-stylesheet", "--interactive"]
 
         self.spawn('/usr/bin/sudo', args)
 
