@@ -177,11 +177,7 @@ class MASSCANPlugin(ExternalProcessPlugin):
         self.masscan_stdout = ''
         self.masscan_stderr = ''
 
-        self.banners = []
-        if 'banners' in self.configuration:
-            self.banners = self.configuration.get('banners')
-
-        self.baseline = []            
+        self.baseline = []
         if 'baseline' in self.configuration:
             self.baseline = self.configuration.get('baseline')
 
@@ -220,9 +216,21 @@ class MASSCANPlugin(ExternalProcessPlugin):
         if interface:
             args += ['--interface', interface]
 
-        args += ['--banners']
+        ### Check if parameters are specified (syntax "Parm1 Parm2 etc"
+        params = []
+        if 'parameters' in self.configuration:
+            params = self.configuration.get('parameters')
+
+            ### Put parameters into array
+            params = params.split()
+        else:
+            ### Use default parameters
+            params = ['--banners']
+        args += params
 
         self.spawn('/usr/bin/sudo', args)
+
+        self.report_progress(33, args)
 
     def do_process_stdout(self, data):
         self.masscan_stdout += data
