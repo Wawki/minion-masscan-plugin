@@ -9,6 +9,9 @@
 import re
 import collections
 import netaddr
+import socket
+import os
+import uuid
 
 from urlparse import urlparse
 from minion.plugins.base import ExternalProcessPlugin
@@ -60,7 +63,7 @@ def _create_banner_issue(ip, port, protocol, banner):
 
 def _validate_ports(ports):
     # 21-25,139,8080,U:53,U:111,U:137
-    return re.match(r"((U:)?\d+(-\d+)?)(,(U:)?\d+(-\d+)?)*", ports)
+    return re.match(r"(((U|T):)?\d+(-\d+)?)(,((U|T):)?\d+(-\d+)?)*", ports)
 
 def _validate_source_port(source_port):
     try:
@@ -177,7 +180,12 @@ class MASSCANPlugin(ExternalProcessPlugin):
         self.masscan_stdout = ''
         self.masscan_stderr = ''
 
-        self.baseline = []
+        if 'report_dir' in self.configuration:
+            self.report_dir = self.configuration['report_dir']
+        else:
+            self.report_dir = os.path.dirname(os.path.realpath(__file__)) + "/artifacts/"
+
+        self.baseline = []            
         if 'baseline' in self.configuration:
             self.baseline = self.configuration.get('baseline')
 
@@ -228,9 +236,12 @@ class MASSCANPlugin(ExternalProcessPlugin):
             params = ['--banners']
         args += params
 
-        self.spawn('/usr/bin/sudo', args)
 
-        self.report_progress(33, args)
+        self.output_id = str(uuid.uuid4())
+        self.xml_output = self.report_dir + "XMLOUTPUT_" + self.output_id + ".xml"
+        args += ["-oX", self.xml_output, "--no-stylesheet", "--interactive"]
+
+        self.spawn('/usr/bin/sudo', args)
 
     def do_process_stdout(self, data):
         self.masscan_stdout += data
@@ -245,6 +256,32 @@ class MASSCANPlugin(ExternalProcessPlugin):
             ips = parse_masscan_output(self.masscan_stdout)
             issues = self.ips_to_issues(ips)
             self.report_issues(issues)
+            self._save_artifacts()
             self.report_finish()
         else:
-            self.report_finish('FAILED')
+            self._save_artifacts()
+            failure = {
+                "hostname": socket.gethostname(),
+                "exception": self.stderr,
+                "message": "Plugin failed"
+            }
+            self.report_finish("FAILED", failure)
+
+    def _save_artifacts(self):
+        stdout_log = self.report_dir + "STDOUT_" + self.output_id + ".txt"
+        stderr_log = self.report_dir + "STDERR_" + self.output_id + ".txt"
+        output_artifacts = []
+
+        if self.masscan_stdout:
+            with open(stdout_log, 'w') as f:
+                f.write(self.masscan_stdout)
+            output_artifacts.append(stdout_log)
+        if self.masscan_stderr:
+            with open(stderr_log, 'w') as f:
+                f.write(self.masscan_stderr)
+            output_artifacts.append(stderr_log)
+
+        if output_artifacts:
+            self.report_artifacts("Masscan Output", output_artifacts)
+        if os.path.isfile(self.xml_output):
+            self.report_artifacts("Masscan Report", [self.xml_output])
