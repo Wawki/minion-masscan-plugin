@@ -189,14 +189,11 @@ class MASSCANPlugin(ExternalProcessPlugin):
         if 'baseline' in self.configuration:
             self.baseline = self.configuration.get('baseline')
 
+        ### Allow only IP or CIDR as masscan target
         try:
             target = netaddr.IPNetwork(self.configuration['target'])
         except Exception:
-            try:
-                url = urlparse(self.configuration['target'])
-                target = url.hostname
-            except Exception:
-                raise Exception('Input target is not an IP address or a CIDR or a valid URL')
+            raise Exception('Input target is not an IP address or a CIDR (no url for masscan)')
 
         args += [str(target)]
         ports = self.configuration.get('ports')
