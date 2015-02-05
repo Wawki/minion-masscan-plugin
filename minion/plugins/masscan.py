@@ -12,6 +12,7 @@ import netaddr
 import socket
 import os
 import uuid
+from netaddr import IPNetwork, IPAddress
 
 from urlparse import urlparse
 from minion.plugins.base import ExternalProcessPlugin
@@ -135,9 +136,28 @@ def parse_masscan_output(output):
 
 
 def find_baseline_ports(ip, baseline):
+    default = {}
+    # Browse each entry of the baseline
     for info in baseline:
-        if ip in info['address']:
-            return {'udp': info['udp'], 'tcp': info['tcp']}
+        try:
+            # check if address is a well formatted CIDR
+            network = IPNetwork(info['address'])
+
+            # Check if the ip is inside the network
+            if IPAddress(ip) in network:
+                # Get the port lists
+                info_udp = info['udp'] if 'udp' in info else []
+                info_tcp = info['tcp'] if 'tcp' in info else []
+                return {'udp': info_udp, 'tcp': info_tcp}
+        except Exception as e:
+            # Store rules if it's the default baseline
+            if "default" == info['address']:
+                info_udp = info['udp'] if 'udp' in info else []
+                info_tcp = info['tcp'] if 'tcp' in info else []
+                default = {'udp': info_udp, 'tcp': info_tcp}
+    # Try to retrieve the default rule
+    if default != {}:
+        return default
     return {'udp': [], 'tcp': []}
 
 
@@ -175,16 +195,11 @@ class MASSCANPlugin(ExternalProcessPlugin):
             baseline_ports = find_baseline_ports(ip, self.baseline)
             for info in ips[ip]:
                 if 'banners' not in info:
-                    if (info['protocol'] == 'tcp') and ('tcp' in baseline_ports):
-                        if (str(info['port']) not in baseline_ports['tcp']):
-                            issues.append(_create_unauthorized_open_port_issue(ip, info['port'], 'tcp', self.port_severity))
-                        else:
-                            issues.append(_create_authorized_open_port_issue(ip, info['port'], 'tcp'))
-                    if (info['protocol'] == 'udp') and ('udp' in baseline_ports):
-                        if (str(info['port']) not in baseline_ports['udp']):
-                            issues.append(_create_unauthorized_open_port_issue(ip, info['port'], 'udp', self.port_severity))
-                        else:
-                            issues.append(_create_authorized_open_port_issue(ip, info['port'], 'udp'))
+                    if str(info['port']) in baseline_ports[info['protocol']]:
+                        issues.append(_create_authorized_open_port_issue(ip, info['port'], info['protocol']))
+
+                    if str(info['port']) not in baseline_ports[info['protocol']] and not self.configuration.get('noPortIssue'):
+                        issues.append(_create_unauthorized_open_port_issue(ip, info['port'], info['protocol'], self.port_severity))
 
                 else:
                     for banner in info['banners']:
