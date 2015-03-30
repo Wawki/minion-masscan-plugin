@@ -12,6 +12,7 @@ import netaddr
 import socket
 import os
 import uuid
+import json
 from netaddr import IPNetwork, IPAddress
 
 from urlparse import urlparse
@@ -228,6 +229,14 @@ class MASSCANPlugin(ExternalProcessPlugin):
         self.baseline = []            
         if 'baseline' in self.configuration:
             self.baseline = self.configuration.get('baseline')
+
+            # Check if the baseline is a path to load the external file
+            if isinstance(self.baseline, basestring):
+                try:
+                    with open(self.baseline) as base_json:
+                        self.baseline = json.load(base_json)
+                except Exception:
+                    raise Exception("Cannot load baseline file")
 
         # Check if there a rule to assign severity to unauthorized open port
         # The [0] is used to get the dictionary inside the array
