@@ -221,6 +221,9 @@ class MASSCANPlugin(ExternalProcessPlugin):
         self.masscan_stdout = ''
         self.masscan_stderr = ''
 
+        if 'banners' in self.configuration:
+            self.banners = self.configuration['banners']
+
         if 'report_dir' in self.configuration:
             self.report_dir = self.configuration['report_dir']
         else:
