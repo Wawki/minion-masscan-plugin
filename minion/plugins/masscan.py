@@ -54,7 +54,7 @@ def _create_authorized_open_port_issue(ip, port, protocol):
 
 def _create_banner_issue(ip, port, protocol, banner):
     issue = {
-        'Severity': 'Low',
+        'Severity': 'Medium',
         'Summary': ip + ': ' + str(port) + '/' + str(protocol) + ' open: "' + banner + '" (information disclosure)',
         'Description': 'Information disclosure',
         'URLs': [{'URL': ip}],
